@@ -1,0 +1,98 @@
+﻿Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+v.Local.sJob.Declare
+v.Local.sSuffix.Declare
+v.Local.sSQL.Declare
+v.Local.sRet.Declare
+v.Local.sTemp.Declare
+f.Intrinsic.Control.Try
+'Try something
+	Function.Intrinsic.UI.UsePixels ' Allows you to use Pixels instead of Twips throughout
+	'Check Hook
+	f.Intrinsic.Control.If(v.Caller.Hook, =, "50782")
+		'Get Job Suffix
+		f.Intrinsic.String.Split(Variable.Passed.Job, "-", v.Local.sTemp)
+		'Get Job
+		v.Local.sJob.Set(v.Local.sTemp(0).Trim)
+		'Get Suffix		
+		v.Local.sSuffix.Set(v.Local.sTemp(1).Trim)
+		f.ODBC.Connection!con.OpenCompanyConnection
+			'Check if record exists in the custom table
+			f.Intrinsic.String.Build("Select * from GCG_6575_FIRST_JOB where Job = '{0}' and Suffix = '{1}'", v.Local.sJob, v.Local.sSuffix, v.Local.sSQL)
+			f.ODBC.Connection!con.ExecuteAndReturn(v.Local.sSQL, v.Local.sRet)
+		f.ODBC.Connection!con.Close
+		'If it doesn't exists set today, otherwise keep going
+		f.Intrinsic.Control.If(v.Local.sRet.Trim, =, "")
+			f.ODBC.Connection!con.OpenCompanyConnection
+			 	f.Intrinsic.String.Build("Insert into  GCG_6575_FIRST_JOB (Job, Suffix, First_Date) Values ('{0}', '{1}', '{2}')", v.Local.sJob, v.Local.sSuffix, v.Ambient.Date.PervasiveDate, v.Local.sSQL)
+			 	f.ODBC.Connection!con.Execute(v.Local.sSQL)
+			f.ODBC.Connection!con.Close			
+		f.Intrinsic.Control.EndIf
+	f.Intrinsic.Control.EndIf
+	'Check Hook Print
+	f.Intrinsic.Control.If(v.Caller.Hook, =, "16090")
+		F.Intrinsic.Control.If(V.Passed.BIP_Rptid,=,"001821")
+			V.Passed.CANCEL.Set(-1)
+			f.Intrinsic.Control.CallSub(Print_Report)
+		F.Intrinsic.Control.EndIf
+		
+		F.Intrinsic.Control.End
+	f.Intrinsic.Control.EndIf
+f.Intrinsic.Control.Catch
+	f.Intrinsic.Control.CallSub(ErrorMsg, CurrentSub, v.Ambient.CurrentSubroutine)
+f.Intrinsic.Control.EndTry
+Program.Sub.Main.End
+
+Program.Sub.ErrorMsg.Start
+v.Local.sError.Declare
+
+'Closes ODBC connection, default to connection : "con"
+f.Intrinsic.Control.If(v.ODBC!con.State, =, 1)
+	f.ODBC.Connection!con.Close
+f.Intrinsic.Control.EndIf
+
+'Generic Error message.
+f.Intrinsic.String.Build("Project GCG_6575_Save_First_Job.g2u {0}{0}Subroutine: {1}{0}Error: {2} with Description: {3}", v.Ambient.NewLine, v.Args.CurrentSub, v.Ambient.ErrorNumber, v.Ambient.ErrorDescription, v.Local.sError)
+f.Intrinsic.UI.Msgbox(v.Local.sError)
+Program.Sub.ErrorMsg.End
+
+Program.Sub.Print_Report.Start
+V.Local.iRunID.Declare(Long,0)
+V.Local.iLogID.Declare(Long,0)
+V.Local.iRPTID.Declare(Long,0)
+V.Local.sParams.Declare(String,"")
+V.Local.sValues.Declare(String,"")
+V.Local.iRet.Declare(Long,0)
+v.Local.sCompanyName.Declare
+v.Local.sDateText.Declare
+
+f.Intrinsic.Control.Try
+	
+	f.ODBC.Connection!con.OpenCompanyConnection
+		 f.ODBC.Connection!con.ExecuteAndReturn("Select Top 1 Name_Company from V_COMPANY", v.Local.sCompanyName)
+		 f.Intrinsic.String.Format(v.Ambient.Date, "MM/DD/YYYY", v.Local.sDateText)
+	f.ODBC.Connection!con.Close
+	
+	v.Local.sParams.Set("Terminal*!*Rptid*!*HDR1*!*Program*!*Seplbr*!*Date*!*COMPANY_NAME")
+	f.Intrinsic.String.Build("{0}*!*{1}*!*{2}*!*{3}*!*{4}*!*{5}*!*{6}",V.Passed.BIP_Terminal, V.Passed.BIP_Rptid, V.Passed.BIP_HDR1, V.Passed.BIP_Program, V.Passed.BIP_SepLbr, V.Passed.BIP_Date, v.Local.sCompanyName, v.Local.sValues)
+	
+	F.Global.BI.GetIDFromName("GCG_6575_SF_WIPwCutOffDt.rpt",V.Local.iRPTID)
+	F.Global.BI.GetRunID(V.Local.iRunID)
+	F.Global.BI.StartLogging(V.Local.iRunID,V.Local.iRPTID,-1,"",V.Local.iLogID)
+	F.Global.BI.StopLogging(V.Local.iLogID)
+	
+	
+	F.Global.BI.RunReportPreProcessor(V.Local.iRunID, V.Local.iLogID, V.Local.sParams, V.Local.sValues, "", -1, True, "", -1, "", -1,  "", "", V.Local.iRet)
+	
+	F.Intrinsic.Control.ExitSub
+f.Intrinsic.Control.Catch
+	f.Intrinsic.Control.CallSub(ErrorMsg, CurrentSub, v.Ambient.CurrentSubroutine)
+f.Intrinsic.Control.EndTry
+Program.Sub.Print_Report.End
+
+Program.Sub.Comments.Start
+${$5$}$3.0.0.0$}$1
+${$6$}$aanazco$}$20220104210232421$}$7aQAV3Tor/tR9bkuakHbuzQlHVuXCGOzDHOmgalarX1EWNXUutBD/PJAdpv6xRQo3612DSWzMRY=
+Program.Sub.Comments.End
